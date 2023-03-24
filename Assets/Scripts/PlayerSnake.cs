@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Linq;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 
 public class PlayerSnake : BodyPart {
     [SerializeField] Vector2 direction = Vector2.right;
@@ -13,10 +14,10 @@ public class PlayerSnake : BodyPart {
     [SerializeField] InputAction inputAction;
     [SerializeField] float bodyOffset = 1;
     [SerializeField] bool move;
+    [SerializeField] float raycastDistance = 1f;
     const string Apple = "Apple";
     const string BodyPart = "BodyPart";
-    [SerializeField] float raycastDistance = 1f;
-    BodyPart bodyT;
+
     public delegate void PlayerHit(PlayerSnake snake,Transform target,PlayerLostReason reason);
     public PlayerHit playerHit;
 
@@ -53,29 +54,28 @@ public class PlayerSnake : BodyPart {
 
     [ServerRpc]
     void GrowServerRpc(ServerRpcParams serverRpcParams) {
-        var body = GameController.instance.GetPlayerBody();   //object pooling 
+        var body = GameController.instance.GetPlayerBody(serverRpcParams.Receive.SenderClientId);   //object pooling                                                                                                   
         if(body == null) {
             body = Instantiate<BodyPart>(bodySpritePrefab, bodyParts.Last().transform.position + ((new Vector3(direction.x, direction.y, 0) * -1)), transform.rotation);
-            body.networkObject.SpawnWithOwnership(serverRpcParams.Receive.SenderClientId); //spawn with id 
+            body.networkObject.SpawnWithOwnership(serverRpcParams.Receive.SenderClientId); //spawn with id
+        }
+        if(!body.networkObject.IsNetworkVisibleTo(serverRpcParams.Receive.SenderClientId)) {
+            body.networkObject.NetworkShow(serverRpcParams.Receive.SenderClientId);
         }
         body.gameObject.SetActive(true);
         if(IsOwner) {  //if host or server
             bodyParts.Add(body);
         } else {
-            AddBodyClientRpc(body.NetworkObjectId.ToString());  //if client
+            AddBodyClientRpc(body.NetworkObjectId);  //if client
         }
         //Debug.Log("server rpc" + OwnerClientId);
         SnakeGridArea.instance.CheckAreaCoverage();  //check area covered
     }
 
     [ClientRpc]
-    void AddBodyClientRpc(string message) {
-        ulong s = ulong.Parse(message);
-        var obj = GetNetworkObject(s);
-        //Debug.Log("messae" + s +" " + OwnerClientId);
-        if(obj.IsOwner) {
-            bodyParts.Add(obj.GetComponent<BodyPart>());
-        }
+    void AddBodyClientRpc(ulong id) {
+        var obj = GetNetworkObject(id);  
+        bodyParts.Add(obj.GetComponent<BodyPart>());
     }
 
     /// <summary>
@@ -141,8 +141,22 @@ public class PlayerSnake : BodyPart {
         if(snake == this) {
             Debug.LogError("player died" + reason);
             bodyParts.Remove(this);
+            if(snake.IsOwner)
+                RemoveAllBodyOwnershipServerRpc(new ServerRpcParams());
             gameObject.SetActive(false);
         }
+    }
+
+    [ServerRpc]
+    void RemoveAllBodyOwnershipServerRpc(ServerRpcParams p) {
+        var obj = NetworkObject.NetworkManager.ConnectedClients[p.Receive.SenderClientId];
+        var otherClients = NetworkObject.NetworkManager.ConnectedClientsIds.ToList().FindAll(x => x != p.Receive.SenderClientId);
+        obj.OwnedObjects.ForEach(x => {
+            otherClients?.ForEach(y => {
+                x.NetworkHide(y);
+            });
+            x.RemoveOwnership();
+        });
     }
 
     private void OnDisable() {

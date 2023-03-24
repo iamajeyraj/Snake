@@ -79,8 +79,18 @@ public class GameController : NetworkBehaviour {
         NetworkManager.Singleton.DisconnectClient(serverRpcParams.Receive.SenderClientId);
     }
 
-    public BodyPart GetPlayerBody() {
-        return poolOfBodyParts.Count > 0 ? poolOfBodyParts.Dequeue() : null;
+    public BodyPart GetPlayerBody(ulong clientId) {
+        BodyPart body = null;
+        Debug.Log("pool count" + poolOfBodyParts.Count);
+        if(poolOfBodyParts.Count > 0) {
+            body = poolOfBodyParts.Dequeue();
+            Debug.Log("body" + body + OwnerClientId);
+            if(body != null)
+                body.networkObject.ChangeOwnership(clientId);
+            else
+                Debug.Log("body null");
+        }
+        return body;
     }
 }
 

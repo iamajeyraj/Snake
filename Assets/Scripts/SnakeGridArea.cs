@@ -32,8 +32,7 @@ public class SnakeGridArea : NetworkBehaviour {
         GameController.instance.playerDisconnected += OnSnakeDisconnected;
     }
 
-    private void OnSnakeDisconnected(ulong obj)
-    {
+    private void OnSnakeDisconnected(ulong obj) {
         if(players.Count == 0) {
             gameOver?.Invoke(); //annonce game over
         }
@@ -119,11 +118,5 @@ public class SnakeGridArea : NetworkBehaviour {
     void AnnouncePlayerLost(PlayerSnake snake, PlayerLostReason reason) {
         players.Remove(snake);
         snakeDead?.Invoke(reason, snake);
-        //if(players.Count == 0) {
-        //    gameOver?.Invoke();
-        //} else {
-        //    Debug.LogError("player dead");
-        //}
-        //snake.networkObject.Despawn(true);
     }
 }
