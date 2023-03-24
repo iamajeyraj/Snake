@@ -21,8 +21,7 @@ public class PlayerSnake : BodyPart {
     public PlayerHit playerHit;
 
     private void Awake() {
-        //SnakeGridArea.instance.GetGridAreaBounds += (x => gridBounds = x);
-        SnakeGridArea.instance.snakeDead += PlayerDead;
+        SnakeGridArea.instance.snakeDead += PlayerDead; 
         SnakeGridArea.instance.PlayerCreated(this);
         InputBindings();
         bodyParts.Add(this);
@@ -31,7 +30,6 @@ public class PlayerSnake : BodyPart {
     private void Update()
     {
         Debug.DrawRay(transform.position, direction * raycastDistance, Color.green);
-        //CheckHit();
     }
 
     private void FixedUpdate() {
@@ -44,6 +42,7 @@ public class PlayerSnake : BodyPart {
         }
     }
 
+    //Get total area covered by snake 
     public Vector2 GetAreaOfSnake() {
         Vector2 area = Vector2.zero;
         for(int i = 0; i < bodyParts.Count; i++) {
@@ -54,19 +53,19 @@ public class PlayerSnake : BodyPart {
 
     [ServerRpc]
     void GrowServerRpc(ServerRpcParams serverRpcParams) {
-        var body = GameController.instance.GetPlayerBody();
+        var body = GameController.instance.GetPlayerBody();   //object pooling 
         if(body == null) {
             body = Instantiate<BodyPart>(bodySpritePrefab, bodyParts.Last().transform.position + ((new Vector3(direction.x, direction.y, 0) * -1)), transform.rotation);
-            body.networkObject.SpawnWithOwnership(serverRpcParams.Receive.SenderClientId);
+            body.networkObject.SpawnWithOwnership(serverRpcParams.Receive.SenderClientId); //spawn with id 
         }
         body.gameObject.SetActive(true);
-        if(IsOwner) {
+        if(IsOwner) {  //if host or server
             bodyParts.Add(body);
         } else {
-            AddBodyClientRpc(body.NetworkObjectId.ToString());
+            AddBodyClientRpc(body.NetworkObjectId.ToString());  //if client
         }
-        Debug.Log("server rpc" + OwnerClientId);
-        SnakeGridArea.instance.CheckAreaCoverage();
+        //Debug.Log("server rpc" + OwnerClientId);
+        SnakeGridArea.instance.CheckAreaCoverage();  //check area covered
     }
 
     [ClientRpc]
@@ -76,10 +75,14 @@ public class PlayerSnake : BodyPart {
         //Debug.Log("messae" + s +" " + OwnerClientId);
         if(obj.IsOwner) {
             bodyParts.Add(obj.GetComponent<BodyPart>());
-            //Debug.Log("it is added "+OwnerClientId);
         }
     }
 
+    /// <summary>
+    /// Get all body parts for pooling.
+    /// Can be used by changing the ownership.
+    /// </summary>
+    /// <returns></returns>
     public List<BodyPart> GetAllBodyPart() {
         bodyParts.Remove(this);
         return bodyParts;
@@ -97,32 +100,32 @@ public class PlayerSnake : BodyPart {
         }
     }
 
+    /// <summary>
+    /// Check to see where player got hit
+    /// </summary>
     void CheckHit() {
-        //if(IsOwner) {
-        //    var hit = Physics2D.Raycast(transform.position, direction, raycastDistance);
-        //    if(hit.collider != null) {
-
-        //    }
-        //}
-        var body = collider.GetComponent<BodyPart>();
-        if(body != null && body.transform.tag == BodyPart) {
+        if(IsOwner) {
+            var body = collider.GetComponent<BodyPart>();
             if(bodyParts.Contains(body)) {
                 playerHit?.Invoke(this, collider.transform, PlayerLostReason.SelfHit);
             } else {
                 playerHit?.Invoke(this, collider.transform, PlayerLostReason.HitOther);
             }
-        } else {
-            //do nothing
         }
     }
 
+    /// <summary>
+    /// Every player will get random input binding.
+    /// Can add more/different bindings for player movement.
+    /// </summary>
     void InputBindings() {
         PlayerSnakeActions inputActions = new PlayerSnakeActions();
         foreach(var actn in inputActions) {
-            actionNames.Add(actn.name);
+            actionNames.Add(actn.name);   //get all action maps 
         }
-        //string randomActionName = actionNames[Random.Range(0, actionNames.Count)];
-        inputAction = inputActions.FindAction(actionNames[1]);
+
+        string randomActionName = actionNames[Random.Range(0, actionNames.Count)]; //getting random input binding for every player
+        inputAction = inputActions.FindAction(randomActionName);
         inputAction.performed += ActionPerformed;
         inputAction.Enable();
     }
@@ -130,7 +133,7 @@ public class PlayerSnake : BodyPart {
     private void ActionPerformed(InputAction.CallbackContext obj) {
         Vector2 dir = obj.ReadValue<Vector2>();
         if((-1 * direction) != dir) {
-            direction = dir;
+            direction = dir;     //changing the direction 
         }
     }
 

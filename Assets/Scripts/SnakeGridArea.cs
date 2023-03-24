@@ -29,11 +29,23 @@ public class SnakeGridArea : NetworkBehaviour {
 
     private void Start() {
         GetGridAreaBounds?.Invoke(collider.bounds);
+        GameController.instance.playerDisconnected += OnSnakeDisconnected;
     }
 
+    private void OnSnakeDisconnected(ulong obj)
+    {
+        if(players.Count == 0) {
+            gameOver?.Invoke(); //annonce game over
+        }
+    }
+
+    /// <summary>
+    /// Triggered when total area of the grid is covered 90%.
+    /// Grid can be increased. Still all the logic including the snake and apple will work 
+    /// </summary>
     public void CheckAreaCoverage() {
         GetGridAreaBounds?.Invoke(collider.bounds);
-        var gridArea = transform.localScale.x* transform.localScale.y;
+        var gridArea = transform.localScale.x * transform.localScale.y;
 
         Vector2 totalSnakeArea = Vector3.zero;
         players.ForEach(x => {
@@ -47,6 +59,10 @@ public class SnakeGridArea : NetworkBehaviour {
         }
     }
 
+    /// <summary>
+    /// Get random point without snake in it
+    /// </summary>
+    /// <param name="callback"></param>
     public void GetRandomPointWithoutSnake(Action<Vector3> callback) {
         bool withinSnakeBound = false;
         while(true) {
@@ -63,6 +79,10 @@ public class SnakeGridArea : NetworkBehaviour {
         }
     }
 
+    /// <summary>
+    /// Get random point within grid
+    /// </summary>
+    /// <returns></returns>
     public Vector2 GetRandomPointWithinBounds() {
         if(collider != null) {
             float x = UnityEngine.Random.Range(collider.bounds.min.x, collider.bounds.max.x);
@@ -80,10 +100,13 @@ public class SnakeGridArea : NetworkBehaviour {
     }
 
     public void PlayerHit(PlayerSnake snake, Transform target, PlayerLostReason reason) {
-        Debug.LogFormat("player hit {0}" + reason);
+        //Debug.LogFormat("player hit {0}" + reason);
         AnnouncePlayerLost(snake, reason);
     }
 
+    /// <summary>
+    /// Check for player Out of bounds in Grid.
+    /// </summary>
     private void FixedUpdate() {
         for(int i = 0; i < players.Count; i++) {
             var snake = players[i];
@@ -94,14 +117,13 @@ public class SnakeGridArea : NetworkBehaviour {
     }
 
     void AnnouncePlayerLost(PlayerSnake snake, PlayerLostReason reason) {
-        if(snake.IsOwner) {
-            players.Remove(snake);
-            if(players.Count == 0) {
-                gameOver?.Invoke();
-            } else {
-                snakeDead?.Invoke(reason, snake);
-            }
-        }
+        players.Remove(snake);
+        snakeDead?.Invoke(reason, snake);
+        //if(players.Count == 0) {
+        //    gameOver?.Invoke();
+        //} else {
+        //    Debug.LogError("player dead");
+        //}
         //snake.networkObject.Despawn(true);
     }
 }

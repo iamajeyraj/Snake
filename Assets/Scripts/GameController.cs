@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using Unity.Netcode;
+using UnityEngine.SceneManagement;
 
 public class GameController : NetworkBehaviour {
     public static GameController instance;
     public Queue<BodyPart> poolOfBodyParts = new Queue<BodyPart>();
+
+    public delegate void PlayerDisconnected(ulong id);
+    public PlayerDisconnected playerDisconnected;
 
     private void Awake() {
         instance = this;
@@ -14,12 +18,35 @@ public class GameController : NetworkBehaviour {
         SnakeGridArea.instance.gameOver += GameOverServerRpc;
     }
 
-    [ServerRpc]
+    private void Start() {
+        NetworkManager.Singleton.OnClientDisconnectCallback += Singleton_OnClientDisconnectCallback;
+    }
+
+    private void Singleton_OnClientDisconnectCallback(ulong obj) {
+        playerDisconnected?.Invoke(obj);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
     void GameOverServerRpc() {
-        if(IsOwner) {
-            Debug.Log("1");
-            UIManager.instance.GameOver();
-            NetworkManager.Singleton.Shutdown();
+        StartCoroutine(WaitAndShutdown());
+    }
+
+    IEnumerator WaitAndShutdown() {
+        yield return new WaitForSeconds(0.2f);
+        NetworkManager.Singleton.Shutdown();
+    }
+
+    public void StartGame(PlayMode playMode) {
+        switch(playMode) {
+            case PlayMode.Server:
+                NetworkManager.Singleton.StartServer();
+                break;
+            case PlayMode.Host:
+                NetworkManager.Singleton.StartHost();
+                break;
+            case PlayMode.Client:
+                NetworkManager.Singleton.StartClient();
+                break;
         }
     }
 
@@ -43,18 +70,13 @@ public class GameController : NetworkBehaviour {
 
     IEnumerator WaitAndDisconnect(NetworkObject client) {
         yield return new WaitForEndOfFrame();
-        Debug.Log("34");
         UIManager.instance.GameOver();
-        if(client.IsOwner) {
-            DisconnectServerRpc(new ServerRpcParams());
-        }
+        DisconnectServerRpc(new ServerRpcParams());
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     public void DisconnectServerRpc(ServerRpcParams serverRpcParams) {
-        Debug.Log("3");
         NetworkManager.Singleton.DisconnectClient(serverRpcParams.Receive.SenderClientId);
-        //Destroy(networkObject.gameObject);
     }
 
     public BodyPart GetPlayerBody() {

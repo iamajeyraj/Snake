@@ -9,11 +9,8 @@ public class UIManager : MonoBehaviour {
     [SerializeField] GameObject buttonPanel;
     [SerializeField] Button client;
     [SerializeField] Button host;
-    //[SerializeField] GameObject targetPanel;
-    //[SerializeField] Slider slider;
     [SerializeField] Text WinnerText;
     string gameLostMsg = "Game Over : You lost";
-    string errorMsg = "Enter your name to start";
     [SerializeField] InputField playerNameTextField;
     string playerName; 
 
@@ -25,43 +22,24 @@ public class UIManager : MonoBehaviour {
     }
 
     public void ServerConnection() {
-        StartGame(PlayMode.Server);
+        GameController.instance.StartGame(PlayMode.Server);
+        DisableUI();
     }
 
     public void HostConnection() {
-        StartGame(PlayMode.Host);
+        GameController.instance.StartGame(PlayMode.Host);
+        DisableUI();
     }
 
     public void ClientConnection() {
-        StartGame(PlayMode.Client);
-    }
-
-    void StartGame(PlayMode playMode) {
-
-        //if(string.IsNullOrEmpty(playerNameTextField.text)) {
-        //    WinnerText.text = errorMsg;
-        //    return;
-        //}
-
-        switch(playMode) {
-            case PlayMode.Server:
-                NetworkManager.Singleton.StartServer();
-                break;
-            case PlayMode.Host:
-                NetworkManager.Singleton.StartHost();
-                break;
-            case PlayMode.Client:
-                NetworkManager.Singleton.StartClient();
-                break;
-        }
+        GameController.instance.StartGame(PlayMode.Client);
         DisableUI();
     }
 
     void DisableUI() {
-        //playerNameTextField.text = "";
         buttonPanel.SetActive(false);
-        //client.interactable = false;
-        //host.interactable = false;
+        client.interactable = false;
+        host.interactable = false;
     }
 
     public void GameOver() {
